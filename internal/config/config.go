@@ -34,6 +34,19 @@ type AgentsConfig struct {
 	OllamaURL string `mapstructure:"ollama_url"`
 	Model     string `mapstructure:"model"`
 	Provider  string `mapstructure:"provider"` // "openai" or "ollama"
+	// Natural conversation agents configuration
+	NaturalAgents []NaturalAgentConfig `mapstructure:"natural_agents"`
+}
+
+// NaturalAgentConfig defines the configuration for a natural conversation agent
+type NaturalAgentConfig struct {
+	ID             string   `mapstructure:"id"`
+	Name           string   `mapstructure:"name"`
+	Personality    string   `mapstructure:"personality"`
+	Interests      []string `mapstructure:"interests"`
+	ResponseChance float64  `mapstructure:"response_chance"`
+	IsEnabled      bool     `mapstructure:"enabled"`
+	Description    string   `mapstructure:"description,omitempty"`
 }
 
 func Load() (*Config, error) {
@@ -77,4 +90,15 @@ func Load() (*Config, error) {
 	}
 
 	return &config, nil
+}
+
+// GetEnabledNaturalAgents returns only the enabled natural agents
+func (c *Config) GetEnabledNaturalAgents() []NaturalAgentConfig {
+	var enabled []NaturalAgentConfig
+	for _, agent := range c.Agents.NaturalAgents {
+		if agent.IsEnabled {
+			enabled = append(enabled, agent)
+		}
+	}
+	return enabled
 }

@@ -9,6 +9,7 @@ import (
 
 	"philoking/internal/agent"
 	"philoking/internal/config"
+	"philoking/internal/conversation"
 	"philoking/internal/kafka"
 	"philoking/internal/web"
 )
@@ -31,19 +32,37 @@ func main() {
 	}
 	defer kafkaClient.Close()
 
+	// Initialize conversation manager
+	convManager := conversation.NewManager()
+	flowManager := conversation.NewFlowManager(kafkaClient, convManager)
+
+	// Start conversation flow
+	conversationID := "main-conversation"
+	if err := flowManager.StartConversationFlow(ctx, conversationID); err != nil {
+		log.Fatalf("Failed to start conversation flow: %v", err)
+	}
+
+	// Initialize agent factory
+	agentFactory := agent.NewFactory(kafkaClient, convManager)
+
+	// Create agents from configuration
+	var allAgents []agent.Agent
+
+	// Create natural conversation agents from YAML config
+	naturalAgents := agentFactory.CreateNaturalAgents(cfg.GetEnabledNaturalAgents())
+	allAgents = append(allAgents, naturalAgents...)
+
+	// Register natural agents in conversation flow
+	agentFactory.RegisterAgentsInConversationFlow(flowManager, cfg.Agents.NaturalAgents)
+
 	// Initialize agent manager
 	agentManager := agent.NewManager(kafkaClient, cfg.Agents)
 
-	// Register agents
-	echoAgent := agent.NewEchoAgent(kafkaClient)
-	llmAgent := agent.NewLLMAgent(kafkaClient, cfg.Agents)
-
-	if err := agentManager.RegisterAgent(echoAgent); err != nil {
-		log.Fatalf("Failed to register echo agent: %v", err)
-	}
-
-	if err := agentManager.RegisterAgent(llmAgent); err != nil {
-		log.Fatalf("Failed to register LLM agent: %v", err)
+	// Register all agents
+	for _, agent := range allAgents {
+		if err := agentManager.RegisterAgent(agent); err != nil {
+			log.Fatalf("Failed to register agent %s: %v", agent.ID(), err)
+		}
 	}
 
 	// Start agents
@@ -58,6 +77,21 @@ func main() {
 			log.Fatalf("Failed to start web server: %v", err)
 		}
 	}()
+
+	// Display startup information
+	log.Println("🎉 Configurable Natural Conversation System Started!")
+	log.Println("📝 Conversation ID:", conversationID)
+	log.Println("🤖 Active Agents:")
+
+	enabledAgents := cfg.GetEnabledNaturalAgents()
+	for _, agentConfig := range enabledAgents {
+		log.Printf("   - %s (%s) - %s", agentConfig.Name, agentConfig.Personality, agentConfig.Description)
+	}
+
+	log.Printf("📊 Total Agents: %d", len(allAgents))
+	log.Println("🌐 Web Interface: http://localhost:8080")
+	log.Println("💬 Start chatting and watch the natural conversation flow!")
+	log.Println("⚙️  Configure agents in config-natural.yaml")
 
 	// Wait for interrupt signal
 	sigChan := make(chan os.Signal, 1)
