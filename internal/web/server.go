@@ -13,15 +13,23 @@ import (
 	"philoking/internal/types"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 )
+
+// ClientInfo stores information about a WebSocket client
+type ClientInfo struct {
+	Conn   *websocket.Conn
+	UserID string
+	Name   string
+}
 
 // Server handles web requests and WebSocket connections
 type Server struct {
 	config      config.WebConfig
 	kafkaClient *kafka.Client
 	upgrader    websocket.Upgrader
-	clients     map[*websocket.Conn]bool
+	clients     map[*websocket.Conn]*ClientInfo
 	clientsMu   sync.RWMutex
 }
 
@@ -35,7 +43,7 @@ func NewServer(cfg config.WebConfig, kafkaClient *kafka.Client) *Server {
 				return true // Allow all origins in development
 			},
 		},
-		clients: make(map[*websocket.Conn]bool),
+		clients: make(map[*websocket.Conn]*ClientInfo),
 	}
 }
 
@@ -78,12 +86,20 @@ func (s *Server) handleWebSocket(c *gin.Context) {
 	}
 	defer conn.Close()
 
-	// Register client
+	// Create unique user agent for this connection
+	userID := uuid.New().String()
+	userName := "User-" + userID[:8] // Short ID for display
+
+	// Register client with user info
 	s.clientsMu.Lock()
-	s.clients[conn] = true
+	s.clients[conn] = &ClientInfo{
+		Conn:   conn,
+		UserID: userID,
+		Name:   userName,
+	}
 	s.clientsMu.Unlock()
 
-	log.Printf("WebSocket client connected. Total clients: %d", len(s.clients))
+	log.Printf("WebSocket client connected as %s (ID: %s). Total clients: %d", userName, userID, len(s.clients))
 
 	// Handle client messages
 	for {
@@ -99,9 +115,9 @@ func (s *Server) handleWebSocket(c *gin.Context) {
 		case "ping":
 			conn.WriteJSON(map[string]string{"type": "pong"})
 		case "message":
-			// Forward to Kafka
+			// Forward to Kafka with user info
 			if content, ok := msg["content"].(string); ok {
-				s.sendUserMessage(content)
+				s.sendUserMessage(content, userID, userName)
 			}
 		}
 	}
@@ -125,7 +141,14 @@ func (s *Server) handleSendMessage(c *gin.Context) {
 		return
 	}
 
-	if err := s.sendUserMessage(req.Content); err != nil {
+	// Generate user ID and name if not provided
+	userID := req.UserID
+	if userID == "" {
+		userID = uuid.New().String()
+	}
+	userName := "User-" + userID[:8]
+
+	if err := s.sendUserMessage(req.Content, userID, userName); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -144,18 +167,21 @@ func (s *Server) handleGetAgents(c *gin.Context) {
 }
 
 // sendUserMessage sends a user message to Kafka
-func (s *Server) sendUserMessage(content string) error {
+func (s *Server) sendUserMessage(content, userID, userName string) error {
 	message := &types.ChatMessage{
 		ID:        generateID(),
 		Type:      types.MessageTypeUser,
 		Content:   content,
-		UserID:    "web-user",
+		AgentID:   userID, // Treat user as an agent
+		UserID:    userID,
 		Timestamp: time.Now(),
 		Metadata: types.Metadata{
 			ConversationID: "main-conversation",
+			FromAgent:      userName, // Human-readable name
 		},
 	}
 
+	log.Printf("User %s (%s) sending message: %s", userName, userID, content)
 	return s.kafkaClient.PublishChatMessage(context.Background(), message)
 }
 
@@ -191,7 +217,13 @@ func (s *Server) broadcastMessage(message *types.ChatMessage) {
 	s.clientsMu.RLock()
 	defer s.clientsMu.RUnlock()
 
-	log.Printf("Broadcasting message: %s (type: %s, agent: %s)", message.Content, message.Type, message.AgentID)
+	// Get sender name for display
+	senderName := message.AgentID
+	if message.Metadata.FromAgent != "" {
+		senderName = message.Metadata.FromAgent
+	}
+
+	log.Printf("Broadcasting message: %s (type: %s, from: %s)", message.Content, message.Type, senderName)
 
 	// Convert message to JSON
 	data, err := json.Marshal(message)
@@ -201,9 +233,9 @@ func (s *Server) broadcastMessage(message *types.ChatMessage) {
 	}
 
 	// Broadcast to all clients
-	for conn := range s.clients {
+	for conn, clientInfo := range s.clients {
 		if err := conn.WriteMessage(websocket.TextMessage, data); err != nil {
-			log.Printf("Error broadcasting to client: %v", err)
+			log.Printf("Error broadcasting to client %s: %v", clientInfo.Name, err)
 			conn.Close()
 			delete(s.clients, conn)
 		}

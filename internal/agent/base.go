@@ -81,7 +81,7 @@ func (a *BaseAgent) Start(ctx context.Context) error {
 	a.running = true
 	a.mu.Unlock()
 
-	// Start listening for chat messages
+	// Start listening for chat messages (user messages)
 	go func() {
 		if err := a.kafkaClient.SubscribeToChatMessagesWithGroup(ctx, "philoking-agent-"+a.id, func(msg *types.ChatMessage) error {
 			return a.ProcessMessage(ctx, msg)
@@ -90,7 +90,16 @@ func (a *BaseAgent) Start(ctx context.Context) error {
 		}
 	}()
 
-	// Start listening for agent messages
+	// Start listening for chat responses (agent messages)
+	go func() {
+		if err := a.kafkaClient.SubscribeToChatResponsesWithGroup(ctx, "philoking-agent-"+a.id, func(msg *types.ChatMessage) error {
+			return a.ProcessMessage(ctx, msg)
+		}); err != nil {
+			log.Printf("Agent %s error subscribing to chat responses: %v", a.id, err)
+		}
+	}()
+
+	// Start listening for agent messages (legacy)
 	go func() {
 		if err := a.kafkaClient.SubscribeToAgentMessages(ctx, "agent-input", func(msg *types.AgentMessage) error {
 			return a.ProcessAgentMessage(ctx, msg)
@@ -131,6 +140,23 @@ func (a *BaseAgent) ProcessMessage(ctx context.Context, message *types.ChatMessa
 	switch message.Type {
 	case types.MessageTypeUser:
 		return handler.HandleUserMessage(ctx, message)
+	case types.MessageTypeAgent:
+		// Check if handler has HandleAgentChatMessage method
+		if agentChatHandler, ok := handler.(interface {
+			HandleAgentChatMessage(ctx context.Context, message *types.ChatMessage) error
+		}); ok {
+			return agentChatHandler.HandleAgentChatMessage(ctx, message)
+		}
+		// Fallback to regular agent message handling
+		return handler.HandleAgentMessage(ctx, &types.AgentMessage{
+			ID:             message.ID,
+			FromAgent:      message.AgentID,
+			ToAgent:        "",
+			Type:           message.Content,
+			Payload:        nil,
+			Timestamp:      message.Timestamp,
+			ConversationID: message.Metadata.ConversationID,
+		})
 	case types.MessageTypeSystem:
 		return handler.HandleSystemMessage(ctx, message)
 	default:

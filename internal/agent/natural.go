@@ -66,6 +66,28 @@ func (n *NaturalAgent) HandleUserMessage(ctx context.Context, message *types.Cha
 	return n.SendChatMessage(ctx, response, message.Metadata.ConversationID)
 }
 
+// HandleAgentChatMessage handles agent messages that come as ChatMessage (not AgentMessage)
+func (n *NaturalAgent) HandleAgentChatMessage(ctx context.Context, message *types.ChatMessage) error {
+	log.Printf("NaturalAgent %s received agent chat message from %s: %s", n.ID(), message.AgentID, message.Content)
+
+	// Check if this message is relevant to this agent
+	if !n.shouldRespond(message) {
+		log.Printf("NaturalAgent %s decided not to respond to agent message: %s", n.ID(), message.Content)
+		return nil
+	}
+
+	// Generate a natural response
+	response := n.generateNaturalResponse(message)
+	if response == "" {
+		return nil // No response generated
+	}
+
+	log.Printf("NaturalAgent %s responding to agent %s: %s", n.ID(), message.AgentID, response)
+
+	// Send response
+	return n.SendChatMessage(ctx, response, message.Metadata.ConversationID)
+}
+
 // HandleAgentMessage handles messages from other agents
 func (n *NaturalAgent) HandleAgentMessage(ctx context.Context, message *types.AgentMessage) error {
 	log.Printf("NaturalAgent %s received agent message from %s: %s", n.ID(), message.FromAgent, message.Type)

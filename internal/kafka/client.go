@@ -213,6 +213,44 @@ func (c *Client) SubscribeToChatResponses(ctx context.Context, handler func(*typ
 	}
 }
 
+// SubscribeToChatResponsesWithGroup subscribes to chat responses with a specific consumer group
+func (c *Client) SubscribeToChatResponsesWithGroup(ctx context.Context, groupID string, handler func(*types.ChatMessage) error) error {
+	reader := kafka.NewReader(kafka.ReaderConfig{
+		Brokers:  c.config.Brokers,
+		Topic:    c.config.Topics.ChatResponses,
+		GroupID:  groupID,
+		MinBytes: 10e3, // 10KB
+		MaxBytes: 10e6, // 10MB
+	})
+	defer reader.Close()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+			msg, err := reader.ReadMessage(ctx)
+			if err != nil {
+				log.Printf("Error reading response message: %v", err)
+				time.Sleep(time.Second)
+				continue
+			}
+
+			var chatMsg types.ChatMessage
+			if err := chatMsg.FromJSON(msg.Value); err != nil {
+				log.Printf("Error unmarshaling response message: %v", err)
+				continue
+			}
+
+			log.Printf("Kafka consumed response in group %s: %s (type: %s, agent: %s)", groupID, chatMsg.Content, chatMsg.Type, chatMsg.AgentID)
+
+			if err := handler(&chatMsg); err != nil {
+				log.Printf("Error handling response message: %v", err)
+			}
+		}
+	}
+}
+
 // SubscribeToAgentMessages subscribes to agent messages
 func (c *Client) SubscribeToAgentMessages(ctx context.Context, topic string, handler func(*types.AgentMessage) error) error {
 	reader := kafka.NewReader(kafka.ReaderConfig{

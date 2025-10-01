@@ -30,6 +30,7 @@ type ChatMessage struct {
 type Metadata struct {
 	ConversationID string            `json:"conversation_id,omitempty"`
 	ReplyTo        string            `json:"reply_to,omitempty"`
+	FromAgent      string            `json:"from_agent,omitempty"` // Human-readable agent name
 	Tags           []string          `json:"tags,omitempty"`
 	Custom         map[string]string `json:"custom,omitempty"`
 }
@@ -71,4 +72,3 @@ func (m *AgentMessage) ToJSON() ([]byte, error) {
 func (m *AgentMessage) FromJSON(data []byte) error {
 	return json.Unmarshal(data, m)
 }
-
