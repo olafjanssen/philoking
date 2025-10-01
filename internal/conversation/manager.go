@@ -1,8 +1,6 @@
 package conversation
 
 import (
-	"math/rand"
-	"strings"
 	"sync"
 	"time"
 
@@ -20,8 +18,6 @@ type Conversation struct {
 	ID           string                  `json:"id"`
 	Participants map[string]*Participant `json:"participants"`
 	Messages     []*types.ChatMessage    `json:"messages"`
-	Topic        string                  `json:"topic,omitempty"`
-	Mood         string                  `json:"mood,omitempty"`
 	CreatedAt    time.Time               `json:"created_at"`
 	UpdatedAt    time.Time               `json:"updated_at"`
 	mu           sync.RWMutex
@@ -29,13 +25,11 @@ type Conversation struct {
 
 // Participant represents a conversation participant
 type Participant struct {
-	ID           string    `json:"id"`
-	Name         string    `json:"name"`
-	Type         string    `json:"type"` // "user", "agent", "system"
-	IsActive     bool      `json:"is_active"`
-	LastSeen     time.Time `json:"last_seen"`
-	Capabilities []string  `json:"capabilities,omitempty"`
-	Personality  string    `json:"personality,omitempty"`
+	ID       string    `json:"id"`
+	Name     string    `json:"name"`
+	Type     string    `json:"type"` // "user", "agent", "system"
+	IsActive bool      `json:"is_active"`
+	LastSeen time.Time `json:"last_seen"`
 }
 
 // NewManager creates a new conversation manager
@@ -90,20 +84,18 @@ func (m *Manager) AddMessage(conversationID string, message *types.ChatMessage) 
 }
 
 // AddParticipant adds a participant to a conversation
-func (m *Manager) AddParticipant(conversationID, participantID, name, participantType string, capabilities []string, personality string) {
+func (m *Manager) AddParticipant(conversationID, participantID, name, participantType string) {
 	conv := m.GetOrCreateConversation(conversationID)
 
 	conv.mu.Lock()
 	defer conv.mu.Unlock()
 
 	conv.Participants[participantID] = &Participant{
-		ID:           participantID,
-		Name:         name,
-		Type:         participantType,
-		IsActive:     true,
-		LastSeen:     time.Now(),
-		Capabilities: capabilities,
-		Personality:  personality,
+		ID:       participantID,
+		Name:     name,
+		Type:     participantType,
+		IsActive: true,
+		LastSeen: time.Now(),
 	}
 }
 
@@ -122,6 +114,7 @@ func (m *Manager) GetRecentMessages(conversationID string, limit int) []*types.C
 }
 
 // IsRelevantToAgent checks if a message is relevant to a specific agent
+// Simplified version - all messages are potentially relevant
 func (m *Manager) IsRelevantToAgent(message *types.ChatMessage, agentID string, capabilities []string, personality string) bool {
 	// System messages are always relevant
 	if message.Type == types.MessageTypeSystem {
@@ -133,41 +126,9 @@ func (m *Manager) IsRelevantToAgent(message *types.ChatMessage, agentID string, 
 		return true
 	}
 
-	// Check if message contains keywords from agent capabilities
-	content := strings.ToLower(message.Content)
-	for _, capability := range capabilities {
-		if strings.Contains(content, strings.ToLower(capability)) {
-			return true
-		}
-	}
-
-	// Check relevance score if available (using Custom field for now)
-	if relevance, exists := message.Metadata.Custom["relevance"]; exists {
-		if relevance == "high" {
-			return true
-		}
-	}
-
-	// Personality-based relevance
-	if personality == "curious" && (strings.Contains(content, "?") || strings.Contains(content, "what") || strings.Contains(content, "how")) {
-		return true
-	}
-
-	if personality == "helpful" && (strings.Contains(content, "help") || strings.Contains(content, "problem") || strings.Contains(content, "issue")) {
-		return true
-	}
-
-	if personality == "social" && (strings.Contains(content, "hello") || strings.Contains(content, "hi") || strings.Contains(content, "greeting")) {
-		return true
-	}
-
-	// Random chance for agents to participate (makes conversation more natural)
-	// This simulates agents "overhearing" conversations
-	if rand.Float64() < 0.3 { // 30% chance
-		return true
-	}
-
-	return false
+	// All other messages are potentially relevant
+	// The agent's response chance will determine if it actually responds
+	return true
 }
 
 // GetActiveParticipants gets active participants in a conversation
@@ -185,28 +146,6 @@ func (m *Manager) GetActiveParticipants(conversationID string) []*Participant {
 	}
 
 	return active
-}
-
-// SetConversationTopic sets the topic of a conversation
-func (m *Manager) SetConversationTopic(conversationID, topic string) {
-	conv := m.GetOrCreateConversation(conversationID)
-
-	conv.mu.Lock()
-	defer conv.mu.Unlock()
-
-	conv.Topic = topic
-	conv.UpdatedAt = time.Now()
-}
-
-// SetConversationMood sets the mood of a conversation
-func (m *Manager) SetConversationMood(conversationID, mood string) {
-	conv := m.GetOrCreateConversation(conversationID)
-
-	conv.mu.Lock()
-	defer conv.mu.Unlock()
-
-	conv.Mood = mood
-	conv.UpdatedAt = time.Now()
 }
 
 // GetConversationContext gets the current conversation context

@@ -35,7 +35,7 @@ func (f *Factory) CreateNaturalAgents(agentConfigs []config.NaturalAgentConfig) 
 		agent := f.createNaturalAgent(agentConfig)
 		if agent != nil {
 			agents = append(agents, agent)
-			log.Printf("Created agent: %s (%s) - %s", agentConfig.Name, agentConfig.Personality, agentConfig.Description)
+			log.Printf("Created agent: %s - %s", agentConfig.Name, agentConfig.Description)
 		}
 	}
 
@@ -55,11 +55,6 @@ func (f *Factory) createNaturalAgent(agentConfig config.NaturalAgentConfig) Agen
 		agentConfig.Name = agentConfig.ID
 	}
 
-	if agentConfig.Personality == "" {
-		log.Printf("Warning: Agent %s missing personality, using 'default'", agentConfig.ID)
-		agentConfig.Personality = "default"
-	}
-
 	// Set default response chance if not specified
 	if agentConfig.ResponseChance == 0 {
 		agentConfig.ResponseChance = 0.7
@@ -71,12 +66,8 @@ func (f *Factory) createNaturalAgent(agentConfig config.NaturalAgentConfig) Agen
 		agentConfig.Name,
 		f.kafkaClient,
 		f.conversationManager,
-		agentConfig.Personality,
-		agentConfig.Interests,
+		agentConfig.ResponseChance,
 	)
-
-	// Set the response chance
-	naturalAgent.SetResponseChance(agentConfig.ResponseChance)
 
 	return naturalAgent
 }
@@ -109,8 +100,6 @@ func (f *Factory) RegisterAgentsInConversationFlow(flowManager *conversation.Flo
 			agentConfig.ID,
 			agentConfig.Name,
 			"agent",
-			agentConfig.Interests,
-			agentConfig.Personality,
 		)
 	}
 }

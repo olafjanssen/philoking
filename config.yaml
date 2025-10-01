@@ -20,55 +20,26 @@ agents:
   
   # Natural conversation agents configuration
   natural_agents:
-    - id: "curious-agent"
-      name: "Curious Agent"
-      personality: "curious"
-      interests:
-        - "questions"
-        - "learning"
-        - "discovery"
-        - "science"
-        - "philosophy"
+    - id: "agent-1"
+      name: "Agent 1"
       response_chance: 0.8
       enabled: true
-      description: "An inquisitive agent that loves asking questions and learning new things"
+      description: "First conversation agent"
       
-    - id: "helpful-agent"
-      name: "Helpful Agent"
-      personality: "helpful"
-      interests:
-        - "help"
-        - "support"
-        - "guidance"
-        - "problem-solving"
-        - "assistance"
-      response_chance: 0.9
-      enabled: true
-      description: "A supportive agent focused on helping others and solving problems"
-      
-    - id: "technical-agent"
-      name: "Technical Agent"
-      personality: "technical"
-      interests:
-        - "programming"
-        - "technology"
-        - "software"
-        - "engineering"
-        - "code"
+    - id: "agent-2"
+      name: "Agent 2"
       response_chance: 0.7
       enabled: true
-      description: "An engineering-minded agent focused on technical aspects and solutions"
+      description: "Second conversation agent"
       
-    - id: "philosophical-agent"
-      name: "Philosophical Agent"
-      personality: "philosophical"
-      interests:
-        - "philosophy"
-        - "meaning"
-        - "existence"
-        - "truth"
-        - "reality"
-        - "ethics"
+    - id: "agent-3"
+      name: "Agent 3"
       response_chance: 0.6
       enabled: true
-      description: "A deep-thinking agent that explores philosophical questions and meanings"
+      description: "Third conversation agent"
+      
+    - id: "agent-4"
+      name: "Agent 4"
+      response_chance: 0.5
+      enabled: true
+      description: "Fourth conversation agent"

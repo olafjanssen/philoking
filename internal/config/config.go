@@ -40,13 +40,11 @@ type AgentsConfig struct {
 
 // NaturalAgentConfig defines the configuration for a natural conversation agent
 type NaturalAgentConfig struct {
-	ID             string   `mapstructure:"id"`
-	Name           string   `mapstructure:"name"`
-	Personality    string   `mapstructure:"personality"`
-	Interests      []string `mapstructure:"interests"`
-	ResponseChance float64  `mapstructure:"response_chance"`
-	IsEnabled      bool     `mapstructure:"enabled"`
-	Description    string   `mapstructure:"description,omitempty"`
+	ID             string  `mapstructure:"id"`
+	Name           string  `mapstructure:"name"`
+	ResponseChance float64 `mapstructure:"response_chance"`
+	IsEnabled      bool    `mapstructure:"enabled"`
+	Description    string  `mapstructure:"description,omitempty"`
 }
 
 func Load() (*Config, error) {

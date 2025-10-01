@@ -85,13 +85,13 @@ func main() {
 
 	enabledAgents := cfg.GetEnabledNaturalAgents()
 	for _, agentConfig := range enabledAgents {
-		log.Printf("   - %s (%s) - %s", agentConfig.Name, agentConfig.Personality, agentConfig.Description)
+		log.Printf("   - %s - %s", agentConfig.Name, agentConfig.Description)
 	}
 
 	log.Printf("📊 Total Agents: %d", len(allAgents))
 	log.Println("🌐 Web Interface: http://localhost:8080")
 	log.Println("💬 Start chatting and watch the natural conversation flow!")
-	log.Println("⚙️  Configure agents in config-natural.yaml")
+	log.Println("⚙️  Configure agents in config.yaml")
 
 	// Wait for interrupt signal
 	sigChan := make(chan os.Signal, 1)
