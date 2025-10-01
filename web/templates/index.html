@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{.title}}</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>PhiloKing Chat</h1>
+            <div class="status">
+                <span id="connection-status" class="status-indicator">Connecting...</span>
+            </div>
+        </header>
+
+        <div class="chat-container">
+            <div id="messages" class="messages">
+                <div class="message system-message">
+                    <div class="message-content">
+                        Welcome to PhiloKing! This is a multi-agent chat system where different AI agents can participate in conversations asynchronously.
+                    </div>
+                </div>
+            </div>
+
+            <div class="input-container">
+                <div class="input-group">
+                    <input type="text" id="message-input" placeholder="Type your message here..." autocomplete="off">
+                    <button id="send-button" class="send-button">Send</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="sidebar">
+            <h3>Active Agents</h3>
+            <div id="agents-list" class="agents-list">
+                <div class="agent-item">
+                    <span class="agent-name">Echo Agent</span>
+                    <span class="agent-status active">Active</span>
+                </div>
+                <div class="agent-item">
+                    <span class="agent-name">LLM Agent</span>
+                    <span class="agent-status active">Active</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/script.js"></script>
+</body>
+</html>
+

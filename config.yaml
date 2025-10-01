@@ -1,0 +1,20 @@
+kafka:
+  brokers:
+    - "localhost:9092"
+  topics:
+    chat_messages: "chat-messages"
+    chat_responses: "chat-responses"
+    agent_input: "agent-input"
+    agent_output: "agent-output"
+
+web:
+  host: "localhost"
+  port: "8080"
+
+agents:
+  provider: "ollama"  # "ollama" or "openai"
+  model: "gpt-oss:20b"     # Model name (e.g., llama2, codellama, mistral)
+  ollama_url: "http://localhost:11434"
+  llm_api_key: ""     # Set via LLM_API_KEY environment variable
+  llm_url: "https://api.openai.com/v1/chat/completions"
+
