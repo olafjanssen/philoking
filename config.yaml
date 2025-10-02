@@ -18,28 +18,20 @@ agents:
   llm_api_key: ""     # Set via LLM_API_KEY environment variable
   llm_url: "https://api.openai.com/v1/chat/completions"
   
-  # Natural conversation agents configuration
-  natural_agents:
-    - id: "agent-1"
-      name: "Agent 1"
+  # Agents configuration
+  agents:
+    - id: "llm-agent-1"
+      name: "LLM Agent 1"
+      type: "llm"
       response_chance: 0.8
       enabled: true
-      description: "First conversation agent"
+      description: "First LLM-powered agent"
       
-    - id: "agent-2"
-      name: "Agent 2"
-      response_chance: 0.7
-      enabled: true
-      description: "Second conversation agent"
-      
-    - id: "agent-3"
-      name: "Agent 3"
+    - id: "llm-agent-2"
+      name: "LLM Agent 2"
+      type: "llm"
       response_chance: 0.6
       enabled: true
-      description: "Third conversation agent"
+      description: "Second LLM-powered agent"
       
-    - id: "agent-4"
-      name: "Agent 4"
-      response_chance: 0.5
-      enabled: true
-      description: "Fourth conversation agent"
+      

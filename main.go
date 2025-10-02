@@ -46,14 +46,10 @@ func main() {
 	agentFactory := agent.NewFactory(kafkaClient, convManager)
 
 	// Create agents from configuration
-	var allAgents []agent.Agent
+	allAgents := agentFactory.CreateAgents(cfg.GetEnabledAgents(), cfg.Agents)
 
-	// Create natural conversation agents from YAML config
-	naturalAgents := agentFactory.CreateNaturalAgents(cfg.GetEnabledNaturalAgents())
-	allAgents = append(allAgents, naturalAgents...)
-
-	// Register natural agents in conversation flow
-	agentFactory.RegisterAgentsInConversationFlow(flowManager, cfg.Agents.NaturalAgents)
+	// Register agents in conversation flow
+	agentFactory.RegisterAgentsInConversationFlow(flowManager, cfg.Agents.Agents)
 
 	// Initialize agent manager
 	agentManager := agent.NewManager(kafkaClient, cfg.Agents)
@@ -79,18 +75,18 @@ func main() {
 	}()
 
 	// Display startup information
-	log.Println("🎉 Configurable Natural Conversation System Started!")
+	log.Println("🎉 Multi-Agent Conversation System Started!")
 	log.Println("📝 Conversation ID:", conversationID)
 	log.Println("🤖 Active Agents:")
 
-	enabledAgents := cfg.GetEnabledNaturalAgents()
+	enabledAgents := cfg.GetEnabledAgents()
 	for _, agentConfig := range enabledAgents {
-		log.Printf("   - %s - %s", agentConfig.Name, agentConfig.Description)
+		log.Printf("   - %s (%s) - %s", agentConfig.Name, agentConfig.Type, agentConfig.Description)
 	}
 
 	log.Printf("📊 Total Agents: %d", len(allAgents))
 	log.Println("🌐 Web Interface: http://localhost:8080")
-	log.Println("💬 Start chatting and watch the natural conversation flow!")
+	log.Println("💬 Start chatting and watch the multi-agent conversation!")
 	log.Println("⚙️  Configure agents in config.yaml")
 
 	// Wait for interrupt signal

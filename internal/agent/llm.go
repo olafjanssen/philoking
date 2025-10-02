@@ -70,8 +70,8 @@ type OllamaResponse struct {
 }
 
 // NewLLMAgent creates a new LLM agent
-func NewLLMAgent(kafkaClient *kafka.Client, config config.AgentsConfig) *LLMAgent {
-	base := NewBaseAgent("llm-agent", "LLM Agent", kafkaClient)
+func NewLLMAgent(id, name string, kafkaClient *kafka.Client, config config.AgentsConfig) *LLMAgent {
+	base := NewBaseAgent(id, name, kafkaClient)
 	agent := &LLMAgent{
 		BaseAgent: base,
 		config:    config,

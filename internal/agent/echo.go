@@ -15,8 +15,8 @@ type EchoAgent struct {
 }
 
 // NewEchoAgent creates a new echo agent
-func NewEchoAgent(kafkaClient *kafka.Client) *EchoAgent {
-	base := NewBaseAgent("echo-agent", "Echo Agent", kafkaClient)
+func NewEchoAgent(id, name string, kafkaClient *kafka.Client) *EchoAgent {
+	base := NewBaseAgent(id, name, kafkaClient)
 	agent := &EchoAgent{BaseAgent: base}
 
 	// Set the message handler

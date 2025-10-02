@@ -22,8 +22,8 @@ func NewFactory(kafkaClient *kafka.Client, convManager *conversation.Manager) *F
 	}
 }
 
-// CreateNaturalAgents creates natural conversation agents from configuration
-func (f *Factory) CreateNaturalAgents(agentConfigs []config.NaturalAgentConfig) []Agent {
+// CreateAgents creates agents from configuration based on their type
+func (f *Factory) CreateAgents(agentConfigs []config.AgentConfig, agentsConfig config.AgentsConfig) []Agent {
 	var agents []Agent
 
 	for _, agentConfig := range agentConfigs {
@@ -32,18 +32,18 @@ func (f *Factory) CreateNaturalAgents(agentConfigs []config.NaturalAgentConfig) 
 			continue
 		}
 
-		agent := f.createNaturalAgent(agentConfig)
+		agent := f.createAgent(agentConfig, agentsConfig)
 		if agent != nil {
 			agents = append(agents, agent)
-			log.Printf("Created agent: %s - %s", agentConfig.Name, agentConfig.Description)
+			log.Printf("Created %s agent: %s - %s", agentConfig.Type, agentConfig.Name, agentConfig.Description)
 		}
 	}
 
 	return agents
 }
 
-// createNaturalAgent creates a single natural agent from configuration
-func (f *Factory) createNaturalAgent(agentConfig config.NaturalAgentConfig) Agent {
+// createAgent creates a single agent from configuration based on its type
+func (f *Factory) createAgent(agentConfig config.AgentConfig, agentsConfig config.AgentsConfig) Agent {
 	// Validate required fields
 	if agentConfig.ID == "" {
 		log.Printf("Warning: Agent missing ID, skipping")
@@ -60,37 +60,30 @@ func (f *Factory) createNaturalAgent(agentConfig config.NaturalAgentConfig) Agen
 		agentConfig.ResponseChance = 0.7
 	}
 
-	// Create the natural agent
-	naturalAgent := NewNaturalAgent(
-		agentConfig.ID,
-		agentConfig.Name,
-		f.kafkaClient,
-		f.conversationManager,
-		agentConfig.ResponseChance,
-	)
-
-	return naturalAgent
+	// Create agent based on type
+	switch agentConfig.Type {
+	case "llm":
+		return f.createLLMAgent(agentConfig, agentsConfig)
+	case "echo":
+		return f.createEchoAgent(agentConfig)
+	default:
+		log.Printf("Warning: Unknown agent type '%s' for agent %s, skipping", agentConfig.Type, agentConfig.ID)
+		return nil
+	}
 }
 
-// CreateLegacyAgents creates the original echo and LLM agents
-func (f *Factory) CreateLegacyAgents(agentsConfig config.AgentsConfig) []Agent {
-	var agents []Agent
+// createLLMAgent creates an LLM agent
+func (f *Factory) createLLMAgent(agentConfig config.AgentConfig, agentsConfig config.AgentsConfig) Agent {
+	return NewLLMAgent(agentConfig.ID, agentConfig.Name, f.kafkaClient, agentsConfig)
+}
 
-	// Create Echo Agent
-	echoAgent := NewEchoAgent(f.kafkaClient)
-	agents = append(agents, echoAgent)
-	log.Printf("Created legacy agent: Echo Agent")
-
-	// Create LLM Agent
-	llmAgent := NewLLMAgent(f.kafkaClient, agentsConfig)
-	agents = append(agents, llmAgent)
-	log.Printf("Created legacy agent: LLM Agent")
-
-	return agents
+// createEchoAgent creates an echo agent
+func (f *Factory) createEchoAgent(agentConfig config.AgentConfig) Agent {
+	return NewEchoAgent(agentConfig.ID, agentConfig.Name, f.kafkaClient)
 }
 
 // RegisterAgentsInConversationFlow registers agents in the conversation flow
-func (f *Factory) RegisterAgentsInConversationFlow(flowManager *conversation.FlowManager, agentConfigs []config.NaturalAgentConfig) {
+func (f *Factory) RegisterAgentsInConversationFlow(flowManager *conversation.FlowManager, agentConfigs []config.AgentConfig) {
 	for _, agentConfig := range agentConfigs {
 		if !agentConfig.IsEnabled {
 			continue
