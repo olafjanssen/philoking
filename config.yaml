@@ -3,9 +3,6 @@ kafka:
     - "localhost:9092"
   topics:
     chat_messages: "chat-messages"
-    chat_responses: "chat-responses"
-    agent_input: "agent-input"
-    agent_output: "agent-output"
 
 web:
   host: "localhost"

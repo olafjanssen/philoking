@@ -16,10 +16,7 @@ type Config struct {
 type KafkaConfig struct {
 	Brokers []string `mapstructure:"brokers"`
 	Topics  struct {
-		ChatMessages  string `mapstructure:"chat_messages"`
-		ChatResponses string `mapstructure:"chat_responses"`
-		AgentInput    string `mapstructure:"agent_input"`
-		AgentOutput   string `mapstructure:"agent_output"`
+		ChatMessages string `mapstructure:"chat_messages"`
 	} `mapstructure:"topics"`
 }
 
@@ -57,9 +54,6 @@ func Load() (*Config, error) {
 	// Set default values
 	viper.SetDefault("kafka.brokers", []string{"localhost:9092"})
 	viper.SetDefault("kafka.topics.chat_messages", "chat-messages")
-	viper.SetDefault("kafka.topics.chat_responses", "chat-responses")
-	viper.SetDefault("kafka.topics.agent_input", "agent-input")
-	viper.SetDefault("kafka.topics.agent_output", "agent-output")
 	viper.SetDefault("web.port", "8080")
 	viper.SetDefault("web.host", "localhost")
 	viper.SetDefault("agents.llm_url", "https://api.openai.com/v1/chat/completions")

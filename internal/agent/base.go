@@ -64,21 +64,12 @@ func (a *BaseAgent) Start(ctx context.Context) error {
 	a.running = true
 	a.mu.Unlock()
 
-	// Start listening for all chat messages (both user and agent messages)
+	// Start listening for all chat messages
 	go func() {
-		if err := a.kafkaClient.SubscribeToChatMessagesWithGroup(ctx, "philoking-agent-"+a.id, func(msg *types.ChatMessage) error {
+		if err := a.kafkaClient.SubscribeToMessages(ctx, "philoking-agent-"+a.id, func(msg *types.ChatMessage) error {
 			return a.ProcessMessage(ctx, msg)
 		}); err != nil {
-			log.Printf("Agent %s error subscribing to chat messages: %v", a.id, err)
-		}
-	}()
-
-	// Start listening for chat responses (agent messages)
-	go func() {
-		if err := a.kafkaClient.SubscribeToChatResponsesWithGroup(ctx, "philoking-agent-"+a.id, func(msg *types.ChatMessage) error {
-			return a.ProcessMessage(ctx, msg)
-		}); err != nil {
-			log.Printf("Agent %s error subscribing to chat responses: %v", a.id, err)
+			log.Printf("Agent %s error subscribing to messages: %v", a.id, err)
 		}
 	}()
 
@@ -130,7 +121,7 @@ func (a *BaseAgent) SendMessage(ctx context.Context, content string, conversatio
 	}
 
 	log.Printf("Agent %s publishing message to Kafka: %s", a.id, content)
-	return a.kafkaClient.PublishChatResponse(ctx, message)
+	return a.kafkaClient.PublishMessage(ctx, message)
 }
 
 // IsRunning returns whether the agent is currently running

@@ -45,7 +45,7 @@ func (f *FlowManager) StartConversationFlow(ctx context.Context, conversationID 
 
 	// Start listening to the unified conversation topic
 	go func() {
-		err := f.kafkaClient.SubscribeToChatMessages(ctx, func(message *types.ChatMessage) error {
+		err := f.kafkaClient.SubscribeToMessages(ctx, "philoking-conversation", func(message *types.ChatMessage) error {
 			return f.handleMessage(ctx, message, conversationID)
 		})
 		if err != nil {

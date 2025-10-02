@@ -158,12 +158,9 @@ func (s *Server) handleSendMessage(c *gin.Context) {
 
 // handleGetAgents returns information about available agents
 func (s *Server) handleGetAgents(c *gin.Context) {
-	// This would typically query the agent manager
-	agents := []map[string]string{
-		{"id": "echo-agent", "name": "Echo Agent", "status": "active"},
-		{"id": "llm-agent", "name": "LLM Agent", "status": "active"},
-	}
-	c.JSON(http.StatusOK, gin.H{"agents": agents})
+	// TODO: Query the actual agent manager for real agent information
+	// For now, return a simple response
+	c.JSON(http.StatusOK, gin.H{"agents": []map[string]string{}})
 }
 
 // sendUserMessage sends a user message to Kafka
@@ -182,32 +179,21 @@ func (s *Server) sendUserMessage(content, userID, userName string) error {
 	}
 
 	log.Printf("User %s (%s) sending message: %s", userName, userID, content)
-	return s.kafkaClient.PublishChatMessage(context.Background(), message)
+	return s.kafkaClient.PublishMessage(context.Background(), message)
 }
 
 // startMessageConsumer starts consuming messages from Kafka and broadcasting to WebSocket clients
 func (s *Server) startMessageConsumer() {
 	ctx := context.Background()
 
-	// Subscribe to user messages
+	// Subscribe to all messages
 	go func() {
-		err := s.kafkaClient.SubscribeToChatMessages(ctx, func(message *types.ChatMessage) error {
+		err := s.kafkaClient.SubscribeToMessages(ctx, "philoking-web", func(message *types.ChatMessage) error {
 			s.broadcastMessage(message)
 			return nil
 		})
 		if err != nil {
-			log.Printf("Error in user message consumer: %v", err)
-		}
-	}()
-
-	// Subscribe to agent responses
-	go func() {
-		err := s.kafkaClient.SubscribeToChatResponses(ctx, func(message *types.ChatMessage) error {
-			s.broadcastMessage(message)
-			return nil
-		})
-		if err != nil {
-			log.Printf("Error in response message consumer: %v", err)
+			log.Printf("Error in message consumer: %v", err)
 		}
 	}()
 }
