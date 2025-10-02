@@ -175,11 +175,11 @@ func (l *LLMAgent) generateResponse(ctx context.Context, userMessage, conversati
 // generateOllamaResponse generates a response using Ollama
 func (l *LLMAgent) generateOllamaResponse(ctx context.Context, userMessage string, conversationHistory []*types.ChatMessage) (string, error) {
 	// Build conversation context
-	systemPrompt := "You are a conversation agent participating in a multi-agent chat system. Be conversational with short colloquial responses. You have access to the full conversation history."
+	systemPrompt := "You're chatting in a group conversation. Keep it casual and natural like you're texting friends. No fancy formatting, lists, or sections - just talk like a normal person. Keep responses short and conversational. You can see the full chat history."
 
 	// Add agent description if available
 	if l.description != "" {
-		systemPrompt += fmt.Sprintf(" Your role and personality: %s", l.description)
+		systemPrompt += fmt.Sprintf(" Your personality: %s", l.description)
 	}
 
 	messages := []Message{
@@ -250,7 +250,7 @@ func (l *LLMAgent) generateOllamaResponse(ctx context.Context, userMessage strin
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return "", fmt.Errorf("Ollama API error: %d - %s", resp.StatusCode, string(body))
+		return "", fmt.Errorf("ollama API error: %d - %s", resp.StatusCode, string(body))
 	}
 
 	// Parse response
@@ -270,11 +270,11 @@ func (l *LLMAgent) generateOpenAIResponse(ctx context.Context, userMessage strin
 	}
 
 	// Build conversation context
-	systemPrompt := "You are a conversation agent participating in a multi-agent chat system. Be conversational with short colloquial responses. You have access to the full conversation history."
+	systemPrompt := "You're chatting in a group conversation. Keep it casual and natural like you're texting friends. No fancy formatting, lists, or sections - just talk like a normal person. Keep responses short and conversational. You can see the full chat history."
 
 	// Add agent description if available
 	if l.description != "" {
-		systemPrompt += fmt.Sprintf(" Your role and personality: %s", l.description)
+		systemPrompt += fmt.Sprintf(" Your personality: %s", l.description)
 	}
 
 	messages := []Message{

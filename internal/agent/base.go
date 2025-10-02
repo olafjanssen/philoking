@@ -125,20 +125,6 @@ func (a *BaseAgent) ProcessMessage(ctx context.Context, message *types.ChatMessa
 		return nil
 	}
 
-	// Wait 20 seconds before responding to allow more messages to accumulate
-	log.Printf("Agent %s will respond in 20 seconds...", a.name)
-	time.Sleep(20 * time.Second)
-
-	// Check if we're still running after the delay
-	a.mu.RLock()
-	running := a.running
-	a.mu.RUnlock()
-
-	if !running {
-		log.Printf("Agent %s stopped during delay, not responding", a.name)
-		return nil
-	}
-
 	// Process the message with full conversation context
 	return handler.HandleMessage(ctx, message)
 }
