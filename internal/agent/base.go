@@ -4,9 +4,11 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"math/rand"
 	"sync"
 	"time"
 
+	"philoking/internal/conversation"
 	"philoking/internal/kafka"
 	"philoking/internal/types"
 
@@ -15,25 +17,29 @@ import (
 
 // BaseAgent provides common functionality for all agents
 type BaseAgent struct {
-	id          string
-	name        string
-	kafkaClient *kafka.Client
-	handler     MessageHandler
-	running     bool
-	mu          sync.RWMutex
-	ctx         context.Context
-	cancel      context.CancelFunc
+	id             string
+	name           string
+	kafkaClient    *kafka.Client
+	handler        MessageHandler
+	running        bool
+	mu             sync.RWMutex
+	ctx            context.Context
+	cancel         context.CancelFunc
+	responseChance float64
+	convManager    *conversation.Manager
 }
 
 // NewBaseAgent creates a new base agent
-func NewBaseAgent(id, name string, kafkaClient *kafka.Client) *BaseAgent {
+func NewBaseAgent(id, name string, kafkaClient *kafka.Client, responseChance float64, convManager *conversation.Manager) *BaseAgent {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &BaseAgent{
-		id:          id,
-		name:        name,
-		kafkaClient: kafkaClient,
-		ctx:         ctx,
-		cancel:      cancel,
+		id:             id,
+		name:           name,
+		kafkaClient:    kafkaClient,
+		ctx:            ctx,
+		cancel:         cancel,
+		responseChance: responseChance,
+		convManager:    convManager,
 	}
 }
 
@@ -96,14 +102,60 @@ func (a *BaseAgent) Stop() error {
 func (a *BaseAgent) ProcessMessage(ctx context.Context, message *types.ChatMessage) error {
 	a.mu.RLock()
 	handler := a.handler
+	responseChance := a.responseChance
 	a.mu.RUnlock()
 
 	if handler == nil {
 		return nil // No handler set
 	}
 
-	// All messages are processed the same way - no distinction between user and agent
+	// Don't respond to our own messages
+	if message.AgentID == a.id {
+		return nil
+	}
+
+	// Add message to conversation history
+	if a.convManager != nil {
+		a.convManager.AddMessage(message.Metadata.ConversationID, message)
+	}
+
+	// Check response chance
+	if !a.shouldRespond(responseChance) {
+		log.Printf("Agent %s decided not to respond (chance: %.2f)", a.name, responseChance)
+		return nil
+	}
+
+	// Wait 20 seconds before responding to allow more messages to accumulate
+	log.Printf("Agent %s will respond in 20 seconds...", a.name)
+	time.Sleep(20 * time.Second)
+
+	// Check if we're still running after the delay
+	a.mu.RLock()
+	running := a.running
+	a.mu.RUnlock()
+
+	if !running {
+		log.Printf("Agent %s stopped during delay, not responding", a.name)
+		return nil
+	}
+
+	// Process the message with full conversation context
 	return handler.HandleMessage(ctx, message)
+}
+
+// shouldRespond determines if this agent should respond based on response chance
+func (a *BaseAgent) shouldRespond(responseChance float64) bool {
+	if responseChance <= 0 {
+		return false
+	}
+	if responseChance >= 1 {
+		return true
+	}
+
+	// Use time-based randomness for more natural distribution
+	seed := time.Now().UnixNano() + int64(len(a.id))
+	rand.Seed(seed)
+	return rand.Float64() < responseChance
 }
 
 // SendMessage sends a message to the global conversation

@@ -18,10 +18,6 @@ if %errorlevel% neq 0 (
 )
 
 echo.
-echo Stopping the application if running...
-taskkill /f /im philoking.exe >nul 2>&1
-
-echo.
 echo Clearing message queue by consuming all messages...
 
 REM Clear messages by consuming them (this effectively clears the queue)
@@ -33,4 +29,3 @@ echo.
 echo ✅ Kafka message queues cleared successfully!
 echo You can now start the application with: .\philoking.exe
 echo.
-pause

@@ -5,6 +5,7 @@ import (
 	"log"
 	"strings"
 
+	"philoking/internal/conversation"
 	"philoking/internal/kafka"
 	"philoking/internal/types"
 )
@@ -15,8 +16,8 @@ type EchoAgent struct {
 }
 
 // NewEchoAgent creates a new echo agent
-func NewEchoAgent(id, name string, kafkaClient *kafka.Client) *EchoAgent {
-	base := NewBaseAgent(id, name, kafkaClient)
+func NewEchoAgent(id, name string, kafkaClient *kafka.Client, responseChance float64, convManager *conversation.Manager) *EchoAgent {
+	base := NewBaseAgent(id, name, kafkaClient, responseChance, convManager)
 	agent := &EchoAgent{BaseAgent: base}
 
 	// Set the message handler

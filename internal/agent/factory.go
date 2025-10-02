@@ -74,12 +74,12 @@ func (f *Factory) createAgent(agentConfig config.AgentConfig, agentsConfig confi
 
 // createLLMAgent creates an LLM agent
 func (f *Factory) createLLMAgent(agentConfig config.AgentConfig, agentsConfig config.AgentsConfig) Agent {
-	return NewLLMAgent(agentConfig.ID, agentConfig.Name, f.kafkaClient, agentsConfig)
+	return NewLLMAgent(agentConfig.ID, agentConfig.Name, f.kafkaClient, agentsConfig, agentConfig.ResponseChance, f.conversationManager)
 }
 
 // createEchoAgent creates an echo agent
 func (f *Factory) createEchoAgent(agentConfig config.AgentConfig) Agent {
-	return NewEchoAgent(agentConfig.ID, agentConfig.Name, f.kafkaClient)
+	return NewEchoAgent(agentConfig.ID, agentConfig.Name, f.kafkaClient, agentConfig.ResponseChance, f.conversationManager)
 }
 
 // RegisterAgentsInConversationFlow registers agents in the conversation flow

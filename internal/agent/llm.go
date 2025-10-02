@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"philoking/internal/config"
+	"philoking/internal/conversation"
 	"philoking/internal/kafka"
 	"philoking/internal/types"
 )
@@ -70,8 +71,8 @@ type OllamaResponse struct {
 }
 
 // NewLLMAgent creates a new LLM agent
-func NewLLMAgent(id, name string, kafkaClient *kafka.Client, config config.AgentsConfig) *LLMAgent {
-	base := NewBaseAgent(id, name, kafkaClient)
+func NewLLMAgent(id, name string, kafkaClient *kafka.Client, config config.AgentsConfig, responseChance float64, convManager *conversation.Manager) *LLMAgent {
+	base := NewBaseAgent(id, name, kafkaClient, responseChance, convManager)
 	agent := &LLMAgent{
 		BaseAgent: base,
 		config:    config,
@@ -90,12 +91,15 @@ func NewLLMAgent(id, name string, kafkaClient *kafka.Client, config config.Agent
 func (l *LLMAgent) HandleMessage(ctx context.Context, message *types.ChatMessage) error {
 	log.Printf("LLMAgent received message from %s: %s", message.AgentID, message.Content)
 
-	// For now, we'll use a simple response since we don't have a real LLM API key
-	// In a real implementation, you would call the LLM API here
-	response, err := l.generateResponse(ctx, message.Content, message.Metadata.ConversationID)
+	// Get full conversation history
+	conversationHistory := l.getConversationHistory(message.Metadata.ConversationID)
+
+	// Call the LLM API to generate a response with full context
+	response, err := l.generateResponse(ctx, message.Content, message.Metadata.ConversationID, conversationHistory)
 	if err != nil {
 		log.Printf("Error generating LLM response: %v", err)
-		response = "I'm sorry, I'm having trouble processing your request right now. Please try again later."
+		// Don't send a response if LLM fails - just log the error
+		return nil
 	}
 
 	log.Printf("LLMAgent sending response: %s", response)
@@ -104,8 +108,18 @@ func (l *LLMAgent) HandleMessage(ctx context.Context, message *types.ChatMessage
 	return l.SendMessage(ctx, response, message.Metadata.ConversationID)
 }
 
+// getConversationHistory retrieves the full conversation history
+func (l *LLMAgent) getConversationHistory(conversationID string) []*types.ChatMessage {
+	if l.convManager == nil {
+		return []*types.ChatMessage{}
+	}
+
+	// Get all messages from the conversation (no limit)
+	return l.convManager.GetRecentMessages(conversationID, 1000) // Large limit to get all messages
+}
+
 // generateResponse generates a response using the configured LLM provider
-func (l *LLMAgent) generateResponse(ctx context.Context, userMessage, conversationID string) (string, error) {
+func (l *LLMAgent) generateResponse(ctx context.Context, userMessage, conversationID string, conversationHistory []*types.ChatMessage) (string, error) {
 	// Determine which provider to use
 	provider := l.config.Provider
 	if provider == "" {
@@ -114,31 +128,55 @@ func (l *LLMAgent) generateResponse(ctx context.Context, userMessage, conversati
 
 	switch provider {
 	case "ollama":
-		return l.generateOllamaResponse(ctx, userMessage)
+		return l.generateOllamaResponse(ctx, userMessage, conversationHistory)
 	case "openai":
-		return l.generateOpenAIResponse(ctx, userMessage)
+		return l.generateOpenAIResponse(ctx, userMessage, conversationHistory)
 	default:
-		// Fallback to mock response
-		return l.generateMockResponse(userMessage), nil
+		return "", fmt.Errorf("unsupported LLM provider: %s", provider)
 	}
 }
 
 // generateOllamaResponse generates a response using Ollama
-func (l *LLMAgent) generateOllamaResponse(ctx context.Context, userMessage string) (string, error) {
+func (l *LLMAgent) generateOllamaResponse(ctx context.Context, userMessage string, conversationHistory []*types.ChatMessage) (string, error) {
+	// Build conversation context
+	messages := []Message{
+		{
+			Role:    "system",
+			Content: "You are a conversation agent participating in a multi-agent chat system. Be conversational with short colloquial responses. You have access to the full conversation history.",
+		},
+	}
+
+	// Add conversation history
+	for _, msg := range conversationHistory {
+		role := "user"
+		if msg.Type == types.MessageTypeAgent {
+			role = "assistant"
+		}
+
+		sender := msg.AgentID
+		if msg.Metadata.FromAgent != "" {
+			sender = msg.Metadata.FromAgent
+		}
+
+		// Include sender info in the message
+		content := fmt.Sprintf("%s: %s", sender, msg.Content)
+		messages = append(messages, Message{
+			Role:    role,
+			Content: content,
+		})
+	}
+
+	// Add the current user message
+	messages = append(messages, Message{
+		Role:    "user",
+		Content: userMessage,
+	})
+
 	// Prepare the request
 	reqBody := OllamaRequest{
-		Model: l.config.Model,
-		Messages: []Message{
-			{
-				Role:    "system",
-				Content: "You are a helpful AI assistant participating in a multi-agent chat system. Be conversational and helpful.",
-			},
-			{
-				Role:    "user",
-				Content: userMessage,
-			},
-		},
-		Stream: false,
+		Model:    l.config.Model,
+		Messages: messages,
+		Stream:   false,
 		Options: OllamaOptions{
 			Temperature: 0.7,
 			TopP:        0.9,
@@ -182,25 +220,50 @@ func (l *LLMAgent) generateOllamaResponse(ctx context.Context, userMessage strin
 }
 
 // generateOpenAIResponse generates a response using OpenAI API
-func (l *LLMAgent) generateOpenAIResponse(ctx context.Context, userMessage string) (string, error) {
-	// If no API key is configured, return a mock response
+func (l *LLMAgent) generateOpenAIResponse(ctx context.Context, userMessage string, conversationHistory []*types.ChatMessage) (string, error) {
+	// If no API key is configured, return an error
 	if l.config.LLMAPIKey == "" {
-		return l.generateMockResponse(userMessage), nil
+		return "", fmt.Errorf("OpenAI API key not configured")
 	}
+
+	// Build conversation context
+	messages := []Message{
+		{
+			Role:    "system",
+			Content: "You are a conversation agent participating in a multi-agent chat system. Be conversational with short colloquial responses. You have access to the full conversation history.",
+		},
+	}
+
+	// Add conversation history
+	for _, msg := range conversationHistory {
+		role := "user"
+		if msg.Type == types.MessageTypeAgent {
+			role = "assistant"
+		}
+
+		sender := msg.AgentID
+		if msg.Metadata.FromAgent != "" {
+			sender = msg.Metadata.FromAgent
+		}
+
+		// Include sender info in the message
+		content := fmt.Sprintf("%s: %s", sender, msg.Content)
+		messages = append(messages, Message{
+			Role:    role,
+			Content: content,
+		})
+	}
+
+	// Add the current user message
+	messages = append(messages, Message{
+		Role:    "user",
+		Content: userMessage,
+	})
 
 	// Prepare the request
 	reqBody := LLMRequest{
-		Model: "gpt-3.5-turbo",
-		Messages: []Message{
-			{
-				Role:    "system",
-				Content: "You are a helpful AI assistant participating in a multi-agent chat system. Be conversational and helpful.",
-			},
-			{
-				Role:    "user",
-				Content: userMessage,
-			},
-		},
+		Model:       "gpt-3.5-turbo",
+		Messages:    messages,
 		MaxTokens:   150,
 		Temperature: 0.7,
 	}
@@ -242,23 +305,4 @@ func (l *LLMAgent) generateOpenAIResponse(ctx context.Context, userMessage strin
 	}
 
 	return llmResp.Choices[0].Message.Content, nil
-}
-
-// generateMockResponse generates a mock response when no LLM API is available
-func (l *LLMAgent) generateMockResponse(userMessage string) string {
-	responses := []string{
-		"That's an interesting point! I'm the LLM Agent, and I'd love to discuss this further.",
-		"I understand what you're saying. From an AI perspective, this is quite fascinating.",
-		"That's a great question! While I'm currently in mock mode, I'd normally provide a more detailed response.",
-		"I appreciate you sharing that with me. In a real implementation, I'd use advanced language models to respond.",
-		"That's thought-provoking! I'm designed to engage in meaningful conversations about various topics.",
-	}
-
-	// Simple hash-based selection for consistency
-	hash := 0
-	for _, char := range userMessage {
-		hash += int(char)
-	}
-
-	return responses[hash%len(responses)] + " (Mock response - configure LLM_API_KEY for real AI responses)"
 }

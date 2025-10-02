@@ -10,7 +10,7 @@ web:
 
 agents:
   provider: "ollama"  # "ollama" or "openai"
-  model: "llama2"     # Model name (e.g., llama2, codellama, mistral)
+  model: "gpt-oss:20b"     # Model name (e.g., llama2, codellama, mistral)
   ollama_url: "http://localhost:11434"
   llm_api_key: ""     # Set via LLM_API_KEY environment variable
   llm_url: "https://api.openai.com/v1/chat/completions"
@@ -20,14 +20,14 @@ agents:
     - id: "llm-agent-1"
       name: "LLM Agent 1"
       type: "llm"
-      response_chance: 0.8
+      response_chance: 0.5
       enabled: true
       description: "First LLM-powered agent"
       
     - id: "llm-agent-2"
       name: "LLM Agent 2"
       type: "llm"
-      response_chance: 0.6
+      response_chance: 0.5
       enabled: true
       description: "Second LLM-powered agent"
       
