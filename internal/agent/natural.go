@@ -26,17 +26,15 @@ func NewNaturalAgent(id, name string, kafkaClient *kafka.Client, convManager *co
 		responseChance:      responseChance,
 	}
 
-	// Set up message handlers
-	agent.SetHandler(types.MessageTypeUser, agent)
-	agent.SetHandler(types.MessageTypeAgent, agent)
-	agent.SetHandler(types.MessageTypeSystem, agent)
+	// Set the message handler
+	agent.SetHandler(agent)
 
 	return agent
 }
 
-// HandleUserMessage handles user messages
-func (n *NaturalAgent) HandleUserMessage(ctx context.Context, message *types.ChatMessage) error {
-	log.Printf("NaturalAgent %s received user message: %s", n.ID(), message.Content)
+// HandleMessage handles all incoming messages (unified)
+func (n *NaturalAgent) HandleMessage(ctx context.Context, message *types.ChatMessage) error {
+	log.Printf("NaturalAgent %s received message from %s: %s", n.ID(), message.AgentID, message.Content)
 
 	// Check if this agent should respond
 	if !n.shouldRespond(message) {
@@ -53,76 +51,7 @@ func (n *NaturalAgent) HandleUserMessage(ctx context.Context, message *types.Cha
 	log.Printf("NaturalAgent %s sending response: %s", n.ID(), response)
 
 	// Send response
-	return n.SendChatMessage(ctx, response, message.Metadata.ConversationID)
-}
-
-// HandleAgentChatMessage handles agent messages that come as ChatMessage
-func (n *NaturalAgent) HandleAgentChatMessage(ctx context.Context, message *types.ChatMessage) error {
-	log.Printf("NaturalAgent %s received agent chat message from %s: %s", n.ID(), message.AgentID, message.Content)
-
-	// Check if this agent should respond
-	if !n.shouldRespond(message) {
-		log.Printf("NaturalAgent %s decided not to respond to agent message: %s", n.ID(), message.Content)
-		return nil
-	}
-
-	// Generate a simple response
-	response := n.generateResponse(message)
-	if response == "" {
-		return nil // No response generated
-	}
-
-	log.Printf("NaturalAgent %s responding to agent %s: %s", n.ID(), message.AgentID, response)
-
-	// Send response
-	return n.SendChatMessage(ctx, response, message.Metadata.ConversationID)
-}
-
-// HandleAgentMessage handles messages from other agents (legacy)
-func (n *NaturalAgent) HandleAgentMessage(ctx context.Context, message *types.AgentMessage) error {
-	log.Printf("NaturalAgent %s received agent message from %s: %s", n.ID(), message.FromAgent, message.Type)
-
-	// Convert agent message to chat message for processing
-	chatMsg := &types.ChatMessage{
-		ID:        message.ID,
-		Type:      types.MessageTypeAgent,
-		Content:   message.Type,
-		AgentID:   message.FromAgent,
-		Timestamp: message.Timestamp,
-		Metadata: types.Metadata{
-			ConversationID: message.ConversationID,
-		},
-	}
-
-	// Check if this agent should respond
-	if !n.shouldRespond(chatMsg) {
-		return nil
-	}
-
-	// Generate response to agent message
-	response := n.generateResponse(chatMsg)
-	if response == "" {
-		return nil
-	}
-
-	log.Printf("NaturalAgent %s responding to agent %s: %s", n.ID(), message.FromAgent, response)
-
-	return n.SendChatMessage(ctx, response, message.ConversationID)
-}
-
-// HandleSystemMessage handles system messages
-func (n *NaturalAgent) HandleSystemMessage(ctx context.Context, message *types.ChatMessage) error {
-	log.Printf("NaturalAgent %s received system message: %s", n.ID(), message.Content)
-
-	// System messages are always relevant
-	response := n.generateResponse(message)
-	if response == "" {
-		return nil
-	}
-
-	log.Printf("NaturalAgent %s responding to system: %s", n.ID(), response)
-
-	return n.SendChatMessage(ctx, response, message.Metadata.ConversationID)
+	return n.SendMessage(ctx, response, message.Metadata.ConversationID)
 }
 
 // shouldRespond determines if this agent should respond to a message

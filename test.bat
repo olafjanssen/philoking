@@ -32,7 +32,7 @@ echo Press Ctrl+C to stop the application
 
 REM Set Ollama configuration
 set PROVIDER=ollama
-set MODEL=llama2
+set MODEL=gpt-oss:20b
 set OLLAMA_URL=http://localhost:11434
 
 REM Run the application

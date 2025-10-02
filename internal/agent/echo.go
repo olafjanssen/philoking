@@ -9,7 +9,7 @@ import (
 	"philoking/internal/types"
 )
 
-// EchoAgent is a simple agent that echoes user messages
+// EchoAgent is a simple agent that echoes messages
 type EchoAgent struct {
 	*BaseAgent
 }
@@ -19,17 +19,15 @@ func NewEchoAgent(kafkaClient *kafka.Client) *EchoAgent {
 	base := NewBaseAgent("echo-agent", "Echo Agent", kafkaClient)
 	agent := &EchoAgent{BaseAgent: base}
 
-	// Set up message handlers
-	agent.SetHandler(types.MessageTypeUser, agent)
-	agent.AddCapability("echo")
-	agent.AddCapability("simple_response")
+	// Set the message handler
+	agent.SetHandler(agent)
 
 	return agent
 }
 
-// HandleUserMessage handles user messages by echoing them
-func (e *EchoAgent) HandleUserMessage(ctx context.Context, message *types.ChatMessage) error {
-	log.Printf("EchoAgent received user message: %s", message.Content)
+// HandleMessage handles all incoming messages (unified)
+func (e *EchoAgent) HandleMessage(ctx context.Context, message *types.ChatMessage) error {
+	log.Printf("EchoAgent received message from %s: %s", message.AgentID, message.Content)
 
 	// Simple echo with a twist
 	response := "Echo: " + message.Content
@@ -46,20 +44,5 @@ func (e *EchoAgent) HandleUserMessage(ctx context.Context, message *types.ChatMe
 	log.Printf("EchoAgent sending response: %s", response)
 
 	// Send response
-	return e.SendChatMessage(ctx, response, message.Metadata.ConversationID)
-}
-
-// HandleAgentMessage handles messages from other agents
-func (e *EchoAgent) HandleAgentMessage(ctx context.Context, message *types.AgentMessage) error {
-	log.Printf("EchoAgent received agent message from %s: %s", message.FromAgent, message.Type)
-
-	// Echo agent doesn't typically respond to other agents
-	// but could be extended to do so
-	return nil
-}
-
-// HandleSystemMessage handles system messages
-func (e *EchoAgent) HandleSystemMessage(ctx context.Context, message *types.ChatMessage) error {
-	log.Printf("EchoAgent received system message: %s", message.Content)
-	return nil
+	return e.SendMessage(ctx, response, message.Metadata.ConversationID)
 }

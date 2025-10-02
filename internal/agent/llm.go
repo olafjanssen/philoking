@@ -80,18 +80,15 @@ func NewLLMAgent(kafkaClient *kafka.Client, config config.AgentsConfig) *LLMAgen
 		},
 	}
 
-	// Set up message handlers
-	agent.SetHandler(types.MessageTypeUser, agent)
-	agent.AddCapability("llm_response")
-	agent.AddCapability("conversational_ai")
-	agent.AddCapability("context_aware")
+	// Set the message handler
+	agent.SetHandler(agent)
 
 	return agent
 }
 
-// HandleUserMessage handles user messages by generating LLM responses
-func (l *LLMAgent) HandleUserMessage(ctx context.Context, message *types.ChatMessage) error {
-	log.Printf("LLMAgent received user message: %s", message.Content)
+// HandleMessage handles all incoming messages (unified)
+func (l *LLMAgent) HandleMessage(ctx context.Context, message *types.ChatMessage) error {
+	log.Printf("LLMAgent received message from %s: %s", message.AgentID, message.Content)
 
 	// For now, we'll use a simple response since we don't have a real LLM API key
 	// In a real implementation, you would call the LLM API here
@@ -104,21 +101,7 @@ func (l *LLMAgent) HandleUserMessage(ctx context.Context, message *types.ChatMes
 	log.Printf("LLMAgent sending response: %s", response)
 
 	// Send response
-	return l.SendChatMessage(ctx, response, message.Metadata.ConversationID)
-}
-
-// HandleAgentMessage handles messages from other agents
-func (l *LLMAgent) HandleAgentMessage(ctx context.Context, message *types.AgentMessage) error {
-	log.Printf("LLMAgent received agent message from %s: %s", message.FromAgent, message.Type)
-
-	// LLM agent could respond to other agents if needed
-	return nil
-}
-
-// HandleSystemMessage handles system messages
-func (l *LLMAgent) HandleSystemMessage(ctx context.Context, message *types.ChatMessage) error {
-	log.Printf("LLMAgent received system message: %s", message.Content)
-	return nil
+	return l.SendMessage(ctx, response, message.Metadata.ConversationID)
 }
 
 // generateResponse generates a response using the configured LLM provider
