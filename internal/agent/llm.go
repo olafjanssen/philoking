@@ -19,8 +19,9 @@ import (
 // LLMAgent is an agent that uses an LLM API to generate responses
 type LLMAgent struct {
 	*BaseAgent
-	config config.AgentsConfig
-	client *http.Client
+	config      config.AgentsConfig
+	client      *http.Client
+	description string
 }
 
 // LLMRequest represents a request to the LLM API (OpenAI format)
@@ -71,7 +72,7 @@ type OllamaResponse struct {
 }
 
 // NewLLMAgent creates a new LLM agent
-func NewLLMAgent(id, name string, kafkaClient *kafka.Client, config config.AgentsConfig, responseChance float64, convManager *conversation.Manager) *LLMAgent {
+func NewLLMAgent(id, name, description string, kafkaClient *kafka.Client, config config.AgentsConfig, responseChance float64, convManager *conversation.Manager) *LLMAgent {
 	base := NewBaseAgent(id, name, kafkaClient, responseChance, convManager)
 	agent := &LLMAgent{
 		BaseAgent: base,
@@ -83,6 +84,9 @@ func NewLLMAgent(id, name string, kafkaClient *kafka.Client, config config.Agent
 
 	// Set the message handler
 	agent.SetHandler(agent)
+
+	// Store the description for use in system prompts
+	agent.description = description
 
 	return agent
 }
@@ -102,10 +106,13 @@ func (l *LLMAgent) HandleMessage(ctx context.Context, message *types.ChatMessage
 		return nil
 	}
 
-	log.Printf("LLMAgent sending response: %s", response)
+	// Clean the response to remove any agent name prefixes
+	cleanResponse := l.cleanResponse(response)
+
+	log.Printf("LLMAgent sending response: %s", cleanResponse)
 
 	// Send response
-	return l.SendMessage(ctx, response, message.Metadata.ConversationID)
+	return l.SendMessage(ctx, cleanResponse, message.Metadata.ConversationID)
 }
 
 // getConversationHistory retrieves the full conversation history
@@ -116,6 +123,35 @@ func (l *LLMAgent) getConversationHistory(conversationID string) []*types.ChatMe
 
 	// Get all messages from the conversation (no limit)
 	return l.convManager.GetRecentMessages(conversationID, 1000) // Large limit to get all messages
+}
+
+// cleanResponse removes agent name prefixes from the LLM response
+func (l *LLMAgent) cleanResponse(response string) string {
+	// Remove common agent name patterns
+	agentName := l.Name()
+
+	// Remove patterns like "Agent Name:" or "LLM Agent 1:" etc.
+	patterns := []string{
+		agentName + ":",
+		agentName + " :",
+		agentName + " -",
+		agentName + " —",
+		agentName + " –",
+	}
+
+	cleaned := response
+	for _, pattern := range patterns {
+		if len(cleaned) > len(pattern) && cleaned[:len(pattern)] == pattern {
+			cleaned = cleaned[len(pattern):]
+			// Remove leading whitespace
+			for len(cleaned) > 0 && (cleaned[0] == ' ' || cleaned[0] == '\t') {
+				cleaned = cleaned[1:]
+			}
+			break
+		}
+	}
+
+	return cleaned
 }
 
 // generateResponse generates a response using the configured LLM provider
@@ -139,10 +175,17 @@ func (l *LLMAgent) generateResponse(ctx context.Context, userMessage, conversati
 // generateOllamaResponse generates a response using Ollama
 func (l *LLMAgent) generateOllamaResponse(ctx context.Context, userMessage string, conversationHistory []*types.ChatMessage) (string, error) {
 	// Build conversation context
+	systemPrompt := "You are a conversation agent participating in a multi-agent chat system. Be conversational with short colloquial responses. You have access to the full conversation history."
+
+	// Add agent description if available
+	if l.description != "" {
+		systemPrompt += fmt.Sprintf(" Your role and personality: %s", l.description)
+	}
+
 	messages := []Message{
 		{
 			Role:    "system",
-			Content: "You are a conversation agent participating in a multi-agent chat system. Be conversational with short colloquial responses. You have access to the full conversation history.",
+			Content: systemPrompt,
 		},
 	}
 
@@ -227,10 +270,17 @@ func (l *LLMAgent) generateOpenAIResponse(ctx context.Context, userMessage strin
 	}
 
 	// Build conversation context
+	systemPrompt := "You are a conversation agent participating in a multi-agent chat system. Be conversational with short colloquial responses. You have access to the full conversation history."
+
+	// Add agent description if available
+	if l.description != "" {
+		systemPrompt += fmt.Sprintf(" Your role and personality: %s", l.description)
+	}
+
 	messages := []Message{
 		{
 			Role:    "system",
-			Content: "You are a conversation agent participating in a multi-agent chat system. Be conversational with short colloquial responses. You have access to the full conversation history.",
+			Content: systemPrompt,
 		},
 	}
 
